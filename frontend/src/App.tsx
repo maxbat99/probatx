@@ -1,234 +1,171 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, TrendingUp, AlertTriangle, Cloud, Newspaper, Trophy, Shield, Users, Target, RefreshCw, Info } from "lucide-react";
+import { ArrowRight, Loader2, RefreshCw } from "lucide-react";
+import "./index.css";
 
-type OddsPrice = { bookmaker: string; market: string; selection: string; odds: number; url?: string };
-type Factor = { key: string; label: string; score: number; weight: number; rationale?: string; sources?: string[] };
-type MarketPrediction = { market: string; probabilities: Record<string, number>; pick: { selection: string; confidence: number; edge?: number; rationale?: string } };
-type WeatherBlock = { stadium: string; lat: number; lon: number; kickoff_iso: string; summary: string; temperature_c: number; wind_kmh: number; precipitation_mm: number; condition_code?: string };
-type Injury = { player: string; status: "out" | "doubtful" | "fit"; note?: string };
-type NewsItem = { title: string; summary: string; url: string; published_at: string };
-type AggregateResponse = {
-  match: { id: string; home: string; away: string; league?: string; kickoff_iso?: string };
-  predictions: MarketPrediction[];
-  top_pick: { market: string; selection: string; confidence: number; edge?: number };
-  odds_best: OddsPrice[];
-  factors: Factor[];
-  injuries: { home: Injury[]; away: Injury[] };
-  weather?: WeatherBlock;
-  news?: NewsItem[];
-  sources?: string[];
-  warnings?: string[];
-};
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-const pct = (n:number)=> `${Math.round(n*100)}%`;
+type Team = { id: string; name: string; country?: string; league?: string };
+type MarketPrediction = { market: string; probabilities: Record<string, number> };
+type AggregateResponse = { match?: { home:string; away:string; league?:string; kickoff_iso?:string }; predictions: MarketPrediction[] };
 
-async function searchTeams(q: string) {
-  const base = import.meta.env.VITE_API_BASE_URL || "";
-  const r = await fetch(`${base}/api/v1/teams/search?q=${encodeURIComponent(q)}`);
-  if (!r.ok) throw new Error("searchTeams failed");
-  return (await r.json()) as { id: string; name: string; country?: string; league?: string }[];
+async function suggestTeams(limit=40): Promise<Team[]> {
+  const r = await fetch(`${API_BASE}/api/v1/teams/suggest?limit=${limit}`);
+  if(!r.ok) return [];
+  return await r.json();
 }
-async function fetchAggregate(homeId: string, awayId: string) {
-  const base = import.meta.env.VITE_API_BASE_URL || "";
-  const r = await fetch(`${base}/api/v1/match/aggregate`, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ homeId, awayId }) });
-  if (!r.ok) throw new Error("aggregate failed");
-  return (await r.json()) as AggregateResponse;
+async function searchTeams(q:string, limit=20): Promise<Team[]> {
+  const r = await fetch(`${API_BASE}/api/v1/teams/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+  if(!r.ok) return [];
+  return await r.json();
 }
 
 export default function App() {
-  const [qHome, setQHome] = useState("");
-  const [qAway, setQAway] = useState("");
-  const [homeSel, setHomeSel] = useState<{id:string;name:string}|null>(null);
-  const [awaySel, setAwaySel] = useState<{id:string;name:string}|null>(null);
-  const [sugHome, setSugHome] = useState<{id:string;name:string}[]>([]);
-  const [sugAway, setSugAway] = useState<{id:string;name:string}[]>([]);
+  // inputs + state
+  const [homeIn, setHomeIn] = useState("");
+  const [awayIn, setAwayIn] = useState("");
+  const [homeSel, setHomeSel] = useState<Team|null>(null);
+  const [awaySel, setAwaySel] = useState<Team|null>(null);
+  const [sugHome, setSugHome] = useState<Team[]>([]);
+  const [sugAway, setSugAway] = useState<Team[]>([]);
   const [loadingSug, setLoadingSug] = useState({home:false, away:false});
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string|null>(null);
-  const [data, setData] = useState<AggregateResponse | null>(null);
+  const [data, setData] = useState<AggregateResponse|null>(null);
+  const [err, setErr] = useState<string|null>(null);
 
-  useEffect(() => {
-    const run = async() => {
-      if (qHome.trim().length < 2) { setSugHome([]); return; }
-      try { setLoadingSug(s=>({...s,home:true})); const res = await searchTeams(qHome.trim()); setSugHome(res.map(r=>({id:r.id,name:r.name}))); } finally { setLoadingSug(s=>({...s,home:false})); }
-    }; run();
-  }, [qHome]);
+  useEffect(()=>{ (async()=>{ try{ const s = await suggestTeams(60); setSugHome(s); setSugAway(s);}catch{} })(); },[]);
+  useEffect(()=>{ if(homeIn.trim().length<2) return; const id=setTimeout(async()=>{ try{ setLoadingSug(v=>({...v,home:true})); setSugHome(await searchTeams(homeIn)); } finally{ setLoadingSug(v=>({...v,home:false})) } },150); return ()=>clearTimeout(id); },[homeIn]);
+  useEffect(()=>{ if(awayIn.trim().length<2) return; const id=setTimeout(async()=>{ try{ setLoadingSug(v=>({...v,away:true})); setSugAway(await searchTeams(awayIn)); } finally{ setLoadingSug(v=>({...v,away:false})) } },150); return ()=>clearTimeout(id); },[awayIn]);
 
-  useEffect(() => {
-    const run = async() => {
-      if (qAway.trim().length < 2) { setSugAway([]); return; }
-      try { setLoadingSug(s=>({...s,away:true})); const res = await searchTeams(qAway.trim()); setSugAway(res.map(r=>({id:r.id,name:r.name}))); } finally { setLoadingSug(s=>({...s,away:false})); }
-    }; run();
-  }, [qAway]);
+  const canSubmit = useMemo(()=> !!homeSel && !!awaySel && homeSel!.id !== awaySel!.id, [homeSel,awaySel]);
 
-  const canSubmit = useMemo(() => !!homeSel && !!awaySel && homeSel.id !== awaySel.id, [homeSel, awaySel]);
-
-  async function onSubmit(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!canSubmit) return;
-    setError(null); setLoading(true);
-    try { const agg = await fetchAggregate(homeSel!.id, awaySel!.id); setData(agg); }
-    catch (err:any) { setError(err?.message || "Errore"); }
-    finally { setLoading(false); }
+  async function onPredict(){
+    if(!canSubmit) return;
+    setLoading(true); setErr(null); setData(null);
+    try{
+      // endpoint avanzato, poi fallback /predict
+      let r = await fetch(`${API_BASE}/api/v1/match/aggregate`, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ homeId: homeSel!.id, awayId: awaySel!.id }) });
+      if(!r.ok){
+        r = await fetch(`${API_BASE}/predict`, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ home: homeSel!.name, away: awaySel!.name }) });
+      }
+      if(!r.ok) throw new Error("Backend non disponibile");
+      setData(await r.json());
+    } catch(e:any){ setErr(e?.message || "Errore"); }
+    finally{ setLoading(false); }
   }
 
+  function reset(){ setHomeIn(""); setAwayIn(""); setHomeSel(null); setAwaySel(null); setData(null); setErr(null); }
+
   return (
-    <div className="min-h-screen">
-      <div className="max-w-6xl mx-auto p-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">ProbaX ⚽️</h1>
-            <p className="opacity-70">Portale di probabilità e pronostici multi-fattore.</p>
-          </div>
-          <button onClick={()=>{ setData(null); setQHome(""); setQAway(""); setHomeSel(null); setAwaySel(null); }} className="inline-flex items-center gap-2 border rounded px-3 py-2">
+    <div className="relative min-h-screen text-white">
+      {/* Background stadio + overlay */}
+      <div className="fixed inset-0 -z-10 bg-center bg-cover" style={{ backgroundImage: "url('/stadium.jpg')" }} />
+      <div className="fixed inset-0 -z-10 bg-black/65" />
+
+      {/* Header */}
+      <header className="sticky top-0 backdrop-blur bg-black/30 border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="text-lg font-semibold tracking-tight">ProbaX — Betting Intelligence</div>
+          <button onClick={reset} className="text-sm inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/15 hover:border-white/30">
             <RefreshCw size={16}/> Reset
           </button>
         </div>
+      </header>
 
-        <form onSubmit={onSubmit} className="grid md:grid-cols-12 gap-3 items-end">
-          <div className="md:col-span-5">
-            <label className="block mb-1">Squadra 1 (Casa)</label>
-            <div className="relative">
-              <input className="w-full border rounded px-3 py-2" placeholder="Es. Milan" value={homeSel?.name ?? qHome} onChange={(e)=>{ setHomeSel(null); setQHome(e.target.value); }} />
-              {(!homeSel && sugHome.length>0) && (
-                <ul className="absolute z-20 w-full bg-white border rounded mt-1">
-                  {sugHome.slice(0,8).map(s=>(
-                    <li key={s.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer" onClick={()=>{ setHomeSel(s); setQHome(""); }}>{s.name}</li>
-                  ))}
-                  {loadingSug.home && <li className="px-3 py-2 text-sm opacity-70 flex items-center gap-2"><Loader2 size={14} className="animate-spin"/> Caricamento…</li>}
-                </ul>
-              )}
+      {/* Hero */}
+      <section className="max-w-7xl mx-auto px-4 py-8">
+        <h1 className="text-3xl md:text-4xl font-extrabold">Trova il valore. Gioca le percentuali.</h1>
+        <p className="text-white/80 mt-2 max-w-2xl">Seleziona due squadre, vedi le probabilità 1X2 e le giocate con il miglior edge.</p>
+      </section>
+
+      {/* Ricerca */}
+      <section className="max-w-7xl mx-auto px-4">
+        <div className="rounded-2xl border border-white/15 bg-white/10 backdrop-blur p-4">
+          <div className="grid md:grid-cols-12 gap-3 items-end">
+            <div className="md:col-span-5">
+              <Label>Squadra Casa</Label>
+              <Typeahead placeholder="Es. Milan" value={homeSel?.name ?? homeIn} onInput={(v)=>{setHomeSel(null); setHomeIn(v)}} onPick={setHomeSel} options={sugHome} loading={loadingSug.home}/>
+            </div>
+            <div className="md:col-span-5">
+              <Label>Squadra Trasferta</Label>
+              <Typeahead placeholder="Es. Inter" value={awaySel?.name ?? awayIn} onInput={(v)=>{setAwaySel(null); setAwayIn(v)}} onPick={setAwaySel} options={sugAway} loading={loadingSug.away}/>
+            </div>
+            <div className="md:col-span-2">
+              <button onClick={onPredict} disabled={!canSubmit || loading} className="w-full h-[44px] rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 hover:brightness-110 font-medium disabled:opacity-50">
+                {loading ? <span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" size={18}/> Calcolo…</span> : <span className="inline-flex items-center gap-2"><ArrowRight size={18}/> Pronostica</span>}
+              </button>
             </div>
           </div>
+          <div className="mt-2 text-xs text-white/70">Digita almeno 2 lettere per l’autocomplete. Copertura globale.</div>
+          {err && <div className="mt-3 text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 inline-flex items-center gap-2">{err}</div>}
+        </div>
+      </section>
 
-          <div className="md:col-span-5">
-            <label className="block mb-1">Squadra 2 (Trasferta)</label>
-            <div className="relative">
-              <input className="w-full border rounded px-3 py-2" placeholder="Es. Inter" value={awaySel?.name ?? qAway} onChange={(e)=>{ setAwaySel(null); setQAway(e.target.value); }} />
-              {(!awaySel && sugAway.length>0) && (
-                <ul className="absolute z-20 w-full bg-white border rounded mt-1">
-                  {sugAway.slice(0,8).map(s=>(
-                    <li key={s.id} className="px-3 py-2 hover:bg-gray-50 cursor-pointer" onClick={()=>{ setAwaySel(s); setQAway(""); }}>{s.name}</li>
-                  ))}
-                  {loadingSug.away && <li className="px-3 py-2 text-sm opacity-70 flex items-center gap-2"><Loader2 size={14} className="animate-spin"/> Caricamento…</li>}
-                </ul>
-              )}
-            </div>
+      {/* Risultati */}
+      {data && (
+        <section className="max-w-7xl mx-auto px-4 my-6">
+          <div className="rounded-2xl border border-white/15 bg-white/10 backdrop-blur p-4">
+            <div className="text-xl font-semibold">{data.match?.home ?? homeSel?.name} <span className="text-white/60">vs</span> {data.match?.away ?? awaySel?.name}</div>
+            <div className="text-sm text-white/70">{data.match?.league ?? "—"}</div>
+
+            {(() => {
+              const base = data.predictions.find(p=> (p.market || "").toLowerCase() === "1x2");
+              if(!base) return null;
+              const H = base.probabilities["Home"] ?? base.probabilities["1"] ?? 0;
+              const D = base.probabilities["Draw"] ?? base.probabilities["X"] ?? 0;
+              const A = base.probabilities["Away"] ?? base.probabilities["2"] ?? 0;
+              return (
+                <div className="grid md:grid-cols-3 gap-3 mt-4">
+                  <ProbRow label={`${data.match?.home ?? homeSel?.name} (1)`} value={H}/>
+                  <ProbRow label="Pareggio (X)" value={D}/>
+                  <ProbRow label={`${data.match?.away ?? awaySel?.name} (2)`} value={A}/>
+                </div>
+              );
+            })()}
           </div>
+        </section>
+      )}
 
-          <div className="md:col-span-2">
-            <button type="submit" disabled={!canSubmit || loading} className="w-full border rounded px-3 py-2 inline-flex items-center justify-center gap-2">
-              {loading ? (<><Loader2 size={16} className="animate-spin"/> Calcolo…</>) : (<><Target size={16}/> Pronostica</>)}
-            </button>
-          </div>
-        </form>
-
-        {error && <div className="mt-4 text-sm text-red-600 inline-flex items-center gap-2"><AlertTriangle size={16}/> {error}</div>}
-
-        {data && (
-          <div className="mt-8 space-y-6">
-            <div className="border rounded p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-xl font-semibold">{data.match.home} vs {data.match.away}</div>
-                <div className="text-sm opacity-70 inline-flex items-center gap-3">
-                  <Trophy size={16}/> {data.match.league ?? "-"}
-                  <Shield size={16}/> {data.match.kickoff_iso ? new Date(data.match.kickoff_iso).toLocaleString() : "-"}
-                </div>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4 mt-3">
-                <div>
-                  {data.predictions.find(p=>p.market==="1X2")?.probabilities && (
-                    <>
-                      <ProbBar label={`${data.match.home} (1)`} value={data.predictions.find(p=>p.market==="1X2")!.probabilities.Home}/>
-                      <ProbBar label="Pareggio (X)" value={data.predictions.find(p=>p.market==="1X2")!.probabilities.Draw}/>
-                      <ProbBar label={`${data.match.away} (2)`} value={data.predictions.find(p=>p.market==="1X2")!.probabilities.Away}/>
-                    </>
-                  )}
-                </div>
-                <div className="border rounded p-3">
-                  <div className="text-sm opacity-70 mb-1">Pronostico migliore</div>
-                  <div className="text-lg font-medium inline-flex items-center gap-2">
-                    <TrendingUp size={18}/> {data.top_pick.market}: {data.top_pick.selection} · {pct(data.top_pick.confidence)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {data.predictions.map(mp => <MarketCard key={mp.market} mp={mp} />)}
-            </div>
-
-            {data.weather && (
-              <div className="border rounded p-4">
-                <div className="font-semibold mb-2 inline-flex items-center gap-2"><Cloud size={18}/> Meteo & Campo</div>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <div><div className="font-medium">{data.weather.stadium}</div><div className="opacity-70">{new Date(data.weather.kickoff_iso).toLocaleString()}</div></div>
-                  <div>🌡️ {data.weather.temperature_c}°C</div>
-                  <div>💧 {data.weather.precipitation_mm} mm</div>
-                  <div>🌬️ {data.weather.wind_kmh} km/h</div>
-                  <div className="opacity-70">{data.weather.summary}</div>
-                </div>
-              </div>
-            )}
-
-            <div className="border rounded p-4">
-              <div className="font-semibold mb-2 inline-flex items-center gap-2"><Users size={18}/> Fattori che influenzano</div>
-              <div className="space-y-2">{data.factors.map(f => <FactorRow key={f.key} f={f} />)}</div>
-            </div>
-
-            {data.odds_best?.length>0 && (
-              <div className="border rounded p-4 overflow-x-auto">
-                <div className="font-semibold mb-2 inline-flex items-center gap-2"><TrendingUp size={18}/> Migliori quote</div>
-                <table className="min-w-full text-sm">
-                  <thead><tr className="opacity-70 text-left"><th className="py-2 pr-4">Mercato</th><th className="py-2 pr-4">Selezione</th><th className="py-2 pr-4">Book</th><th className="py-2 pr-4">Quota</th><th className="py-2 pr-4">Link</th></tr></thead>
-                  <tbody>{data.odds_best.map((o, i) => (<tr key={i} className="border-t"><td className="py-2 pr-4">{o.market}</td><td className="py-2 pr-4">{o.selection}</td><td className="py-2 pr-4">{o.bookmaker}</td><td className="py-2 pr-4 font-medium">{o.odds.toFixed(2)}</td><td className="py-2 pr-4">{o.url ? <a className="underline" href={o.url} target="_blank">vai</a> : "—"}</td></tr>))}</tbody>
-                </table>
-              </div>
-            )}
-
-            {data.news && data.news.length>0 && (
-              <div className="border rounded p-4 space-y-3">
-                <div className="font-semibold inline-flex items-center gap-2"><Newspaper size={18}/> Notizie</div>
-                {data.news.map((n, i) => (
-                  <div key={i} className="flex items-start justify-between gap-3">
-                    <div><a className="underline font-medium" href={n.url} target="_blank">{n.title}</a><div className="text-sm opacity-70">{n.summary}</div></div>
-                    <div className="text-xs opacity-70">{new Date(n.published_at).toLocaleString()}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="text-xs opacity-70">
-              ⚠️ ProbaX fornisce stime probabilistiche a solo scopo informativo. Verifica le leggi locali e gioca responsabilmente.
-            </div>
-          </div>
-        )}
-      </div>
+      <div className="h-10" />
     </div>
   );
 }
 
-function ProbBar({ label, value }: { label:string; value:number }) {
+function Label({children}:{children:React.ReactNode}) {
+  return <label className="block mb-1 text-sm text-white/80">{children}</label>;
+}
+
+function Typeahead({ placeholder, value, onInput, onPick, options, loading }:{
+  placeholder?: string; value:string; onInput:(v:string)=>void; onPick:(t:Team)=>void; options:Team[]; loading?:boolean;
+}) {
+  const show = options.length>0;
   return (
-    <div className="flex items-center gap-3 w-full">
-      <div className="w-28 text-sm opacity-70">{label}</div>
-      <div className="flex-1 h-2 bg-gray-200 rounded"><div className="h-2 bg-gray-500 rounded" style={{width:`${Math.round(value*100)}%`}}/></div>
-      <div className="w-14 text-right font-medium">{pct(value)}</div>
+    <div className="relative">
+      <input value={value} onChange={(e)=>onInput(e.target.value)} placeholder={placeholder} className="w-full h-[44px] rounded-xl bg-white text-black px-3 border border-gray-300 focus:border-blue-500 outline-none"/>
+      <div className="absolute right-3 top-2.5 text-gray-500">{loading ? <Loader2 className="animate-spin" size={18}/> : null}</div>
+      {show && (
+        <ul className="absolute z-20 w-full mt-1 bg-white text-black border border-gray-300 rounded-xl max-h-72 overflow-auto shadow">
+          {options.map(o=>(
+            <li key={o.id} className="px-3 py-2 hover:bg-gray-100 cursor-pointer" onClick={()=>onPick(o)}>
+              <div className="text-sm">{o.name}{o.country?` · ${o.country}`:""}</div>
+              <div className="text-xs text-gray-600">{o.league ?? ""}</div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-function FactorRow({ f }: { f: Factor }) {
+function ProbRow({ label, value }:{ label:string; value:number }) {
+  const w = Math.max(2, Math.round((value||0)*100));
   return (
-    <div className="flex items-start justify-between gap-3 py-1">
-      <div className="flex items-center gap-2">
-        <span className="text-xs border rounded px-2 py-0.5">{f.label}</span>
-        {f.rationale && <span className="text-sm opacity-70">{f.rationale}</span>}
+    <div className="flex items-center gap-3">
+      <div className="w-28 text-sm text-white/80 truncate">{label}</div>
+      <div className="flex-1 h-2 bg-white/15 rounded">
+        <div className="h-2 rounded bg-gradient-to-r from-blue-500 to-emerald-500" style={{ width: `${w}%` }}/>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="text-xs opacity-70">peso {Math.round(f.weight*100)}%</div>
-        <div className="w-40 h-2 bg-gray-200 rounded"><div className="h-2 bg-gray-500 rounded" style={{width:`${Math.round(f.score*100)}%`}}/></div>
-      </div>
+      <div className="w-12 text-right text-sm font-medium">{Math.round((value||0)*100)}%</div>
     </div>
   );
 }
