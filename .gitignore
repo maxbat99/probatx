@@ -1,9 +1,20 @@
-﻿# Node
-frontend/node_modules
-# Python
-backend/venv
-__pycache__/
-# Build
-dist
-*.log
+﻿# root
+.DS_Store
 .env
+*.log
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.parcel-cache/
+
+# backend
+backend/venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# python/cache
+**/__pycache__/
+**/*.pyc
