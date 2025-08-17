@@ -1,0 +1,11 @@
+﻿[build]
+  command = "npm run build"
+  publish = "frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/api/*"
+  to = "http://127.0.0.1:8000/:splat"
+  status = 200
