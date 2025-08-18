@@ -1,0 +1,41 @@
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+from .routers import teams, aggregate, weather_global
+
+load_dotenv()
+
+APP_NAME = os.getenv("APP_NAME", "ProbaX")
+API_PREFIX = os.getenv("API_PREFIX", "/api/v1")
+
+app = FastAPI(title=APP_NAME)
+
+# ---- CORS
+# In produzione imposta ALLOWED_ORIGINS con domini separati da virgola
+# es: https://tuo-sito.netlify.app,https://probax-backend.onrender.com
+_allowed_from_env = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+# Sviluppo: se non c'è ALLOWED_ORIGINS abilita tutto (comodo per localhost)
+_allow_all = not _allowed_from_env
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if _allow_all else _allowed_from_env,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---- Routers
+app.include_router(teams.router, prefix=API_PREFIX)
+app.include_router(aggregate.router, prefix=API_PREFIX)
+app.include_router(weather_global.router, prefix=API_PREFIX)
+
+# ---- Health / Root
+@app.get("/")
+def root():
+    return {"ok": True, "name": f"{APP_NAME} Backend"}
+
+@app.get("/ping")
+def ping():
+    return {"ok": True, "service": APP_NAME}

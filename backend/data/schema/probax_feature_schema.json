@@ -1,0 +1,26 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProbaX Global Football Features",
+  "type": "object",
+  "properties": {
+    "home_strength": { "type": "number", "minimum": 0, "maximum": 1 },
+    "away_strength": { "type": "number", "minimum": 0, "maximum": 1 },
+    "home_form":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "away_form":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "home_adv":      { "type": "number", "minimum": 0, "maximum": 1 },
+    "home_fatigue":  { "type": "number", "minimum": 0, "maximum": 1 },
+    "away_fatigue":  { "type": "number", "minimum": 0, "maximum": 1 },
+    "home_travel":   { "type": "number", "minimum": 0, "maximum": 1 },
+    "away_travel":   { "type": "number", "minimum": 0, "maximum": 1 },
+    "importance":    { "type": "number", "minimum": 0, "maximum": 1 },
+    "rain_risk":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "wind_risk":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "heat_risk":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "home_attack":   { "type": "number", "minimum": 0, "maximum": 1 },
+    "home_defense":  { "type": "number", "minimum": 0, "maximum": 1 },
+    "away_attack":   { "type": "number", "minimum": 0, "maximum": 1 },
+    "away_defense":  { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "required": ["home_strength","away_strength","home_form","away_form","home_adv"],
+  "additionalProperties": false
+}
