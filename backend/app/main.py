@@ -2,13 +2,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from .routers import teams, aggregate
+
+# Routers
+from .routers import teams, aggregate, weather_global, geo_debug, stadiums
 
 load_dotenv()
 
 app = FastAPI(title=os.getenv("APP_NAME", "ProbaX"))
 
-# CORS (sviluppo)
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,9 +20,15 @@ app.add_middleware(
 )
 
 API_PREFIX = os.getenv("API_PREFIX", "/api/v1")
-app.include_router(teams.router, prefix=API_PREFIX)
-app.include_router(aggregate.router, prefix=API_PREFIX)
+
+# Include routers
+app.include_router(teams.router,         prefix=API_PREFIX)
+app.include_router(aggregate.router,     prefix=API_PREFIX)
+app.include_router(weather_global.router, prefix=API_PREFIX)
+app.include_router(geo_debug.router,     prefix=API_PREFIX)
+app.include_router(stadiums.router,      prefix=API_PREFIX)
 
 @app.get("/")
 def root():
     return {"ok": True, "name": "ProbaX Backend"}
+
