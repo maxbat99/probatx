@@ -18,3 +18,4 @@ backend/.mypy_cache/
 # python/cache
 **/__pycache__/
 **/*.pyc
+frontend/.env
