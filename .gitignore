@@ -1,46 +1,17 @@
-﻿# Node / Vite frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/.env.local
-frontend/.env
-frontend/.DS_Store
-
-# log
+﻿# Logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# Netlify build cache
-.netlify/
+# Python cache
+__pycache__/
+*.pyc
 
-# Python / FastAPI backend
-backend/__pycache__/
-backend/**/*.pyc
-backend/**/*.pyo
-backend/**/*.pyd
-backend/.pytest_cache/
-backend/.mypy_cache/
-backend/.ruff_cache/
-backend/.venv/
-backend/venv/
-backend/env/
-backend/.env
+# Node
+node_modules/
+dist/
 
-# SQLite or other local DB
-*.db
-*.sqlite3
+# Env
+.env
+.env.local
 
-# OS / Editor trash
-Thumbs.db
-.DS_Store
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Backup file
+# Backup
 *.bak
-*.tmp
