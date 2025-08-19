@@ -1,64 +1,46 @@
-﻿# ---------------------------
-# Node / React (Vite)
-# ---------------------------
-node_modules/
-dist/
-dist-ssr/
-*.local
+﻿# Node / Vite frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env.local
+frontend/.env
+frontend/.DS_Store
 
-# Vite environment files
-.env
-.env.local
-.env.*.local
-
-# Log
+# log
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ---------------------------
-# Python / FastAPI
-# ---------------------------
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Netlify build cache
+.netlify/
+
+# Python / FastAPI backend
+backend/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/**/*.pyd
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.venv/
+backend/venv/
+backend/env/
+backend/.env
+
+# SQLite or other local DB
 *.db
 *.sqlite3
-*.sqlite
 
-# Virtual env
-venv/
-.venv/
-
-# Mypy / Pytest / Coverage
-.mypy_cache/
-.pytest_cache/
-.coverage
-coverage.xml
-htmlcov/
-
-# ---------------------------
-# Backup / Temp
-# ---------------------------
-*.bak
+# OS / Editor trash
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
 *.swp
 *.swo
-*~
-.DS_Store
-Thumbs.db
 
-# ---------------------------
-# IDE / Editor
-# ---------------------------
-.vscode/
-.idea/
-*.iml
-
-# ---------------------------
-# Build / Deployment
-# ---------------------------
-# Netlify / Vercel
-.netlify/
-.vercel/
+# Backup file
+*.bak
+*.tmp
